@@ -1,0 +1,305 @@
+<template>
+  <div id="bookListContainer">
+    <view class="cu-list2 menu-avatar2">
+      <view class="cu-item2" :class="modalName=='move-box-'+ index?'move-cur2':''" v-for="(item,index) in booksArr" :key="index"
+            @touchstart="ListTouchStart" @touchmove="ListTouchMove" @touchend="ListTouchEnd" :data-target="'move-box-' + index" :data-index="item" @click="toDetail(item.book_id)">
+        <view class="cu-avatar2 xxl2" :style="[{backgroundImage: 'url(' + item.image + ')'}]" style="background-size:168rpx 200rpx;"></view>
+        <view class="content2" style="margin-left: 60rpx">
+          <view class="text-grey">{{item.title}}</view>
+          <view class="text-gray text-sm">作者：{{item.author}}</view>
+          <view class="text-df">处理时间：{{item.time}}</view>
+        </view>
+        <view class="action2">
+          <view v-if="item.status == 0" class="cu-tag round bg-orange light">已提交</view>
+          <view v-if="item.status == 1" class="cu-tag round bg-olive light">审核中</view>
+          <view v-if="item.status == 2" class="cu-tag round bg-blue light">已进购</view>
+        </view>
+        <view class="move2" @click.stop="delete_rating(item.id,index)">
+          <view class="bg-red">删除</view>
+        </view>
+      </view>
+    </view>
+    <p class='footer' v-if='!more'>
+      暂时没有更多数据
+    </p>
+
+  </div>
+</template>
+
+<script>
+  import Rate from "../../components/newRate";
+    export default {
+        components:{
+            Rate
+        },
+        props:['booksArr'],
+        data(){
+            return {
+                more:true,
+                listTouchDirection: null,
+                modalName: null,
+                booksArr:[]
+            }
+        },
+        methods:{
+            toDetail(bookid){
+                 // console.log(bookid)
+                 // console.log(this.globalData.session.key)
+                if (this.globalData.session.key == null){
+                    this.modalName = 'DialogModal1'
+                }else {
+                    let that = this
+                    wx.request({
+                        url: 'http://book.zhangfanglue.top/user/index/browse',
+                        method: 'POST',
+                        data: {
+                            book_id : bookid
+                        }, header: {
+                            'content-type': 'application/json',
+                            'session': that.globalData.session.key
+                        },
+                        success: function (res) {
+                            console.log(res.data)
+                            // app.globalData.session = res.data.data.session3rd
+                        }
+                    })
+                    wx.navigateTo({
+                        url: '/pages/detail3/main?bookid=' + JSON.stringify(bookid)
+                    })
+                }
+            },
+            hideModal(e) {
+                this.modalName = null
+            },
+            Topersonal(){
+                wx.switchTab({
+                    url:'/pages/newpersonal/main'
+                })
+            },
+            // ListTouch触摸开始
+            ListTouchStart(e) {
+                this.listTouchStart = e.touches[0].pageX
+                console.log('触摸开始')
+            },
+
+            // ListTouch计算方向
+            ListTouchMove(e) {
+                this.listTouchDirection = e.touches[0].pageX - this.listTouchStart > 0 ? 'right' : 'left'
+                console.log('计算方向')
+            },
+
+            // ListTouch计算滚动
+            ListTouchEnd(e) {
+                try{
+                    if (this.listTouchDirection == 'left'&&e.currentTarget.dataset.index.user_rating) {
+                        this.modalName = e.currentTarget.dataset.target
+                        console.log('方向为左')
+                        console.log(e)
+                        console.log(this.modalName)
+                    } else {
+                        this.modalName = null
+                    }
+                }catch (e) {
+                    this.modalName = null
+                }
+                this.listTouchDirection = null
+            },
+
+            delete_rating(bookid,index){
+                // wx.navigateBack({
+                //
+                //     delta:1
+                // })
+                // console.log(this.booksArr[0])
+                // this.booksArr.splice(0,1)
+                // console.log(this.booksArr)
+                let that = this
+                wx.request({
+                    url: 'http://book.zhangfanglue.top/user/get/deleteRating',
+                    method: 'POST',
+                    data: {
+                       book_id: bookid
+                    },
+                    header: {
+                        'content-type': 'application/json',
+                        'session': that.globalData.session.key
+                    },
+                    success: function (res) {
+                        wx.showToast({
+                            title: '成功删除评分',
+                            icon: 'success',
+                            duration: 1500
+                        })
+                        setTimeout(function () {
+                            //要延时执行的代码
+                            that.booksArr.splice(index,1)
+                        }, 1000)
+                        // if (getCurrentPages().length != 0) {
+                        //     //刷新当前页面的数据
+                        //     getCurrentPages()[getCurrentPages().length - 1].onShow();
+                        //     console.log(that.booksArr)
+                        //
+                        // }
+                    }
+                })
+
+            }
+        },
+        mounted(){
+            console.log(this)
+            if(this.$mp){
+                this.booksArr = JSON.parse(this.$mp.query.booksArr)
+                this.more = false
+            }
+            wx.setNavigationBarTitle({title: '我的推荐'})
+        }
+    }
+</script>
+
+<style lang="stylus" rel="stylesheet/stylus">
+  #bookListContainer
+    .bookItem
+      display flex
+      padding 10rpx
+      border-bottom 1rpx solid #eee
+      img
+        width 140rpx
+        height 140rpx
+        margin-right 20rpx
+      .bookInfo
+        width 52%
+        font-size 30rpx
+        line-height: 50rpx
+        .book_title
+          font-size 32rpx
+          color #333
+
+          white-space nowrap
+          overflow hidden
+          text-overflow ellipsis
+        .book_author
+          font-size 28rpx
+          color #666
+          //超出一行的部分用...代替
+          white-space nowrap
+          overflow hidden
+          text-overflow ellipsis
+        .book_pub
+          font-size 28rpx
+          color #999
+          white-space nowrap
+          overflow hidden
+          text-overflow ellipsis
+      .bookRating
+        display inline-flex
+        color  #D9D919
+        font-size 30rpx
+        font-weight bold
+        width 130rpx
+    .footer
+      padding-top 30rpx
+      text-align center
+      font-size 25rpx
+      margin 20rpx
+      color #808080
+
+
+
+  .cu-list2.menu-avatar2>.cu-item2 {
+    position: relative;
+    display: flex;
+    padding-right: 10rpx;
+    height: 250rpx;
+    background-color: #ffffff;
+    justify-content: flex-end;
+    align-items: center
+  }
+  .cu-list2>.cu-item2 {
+    transition: all .6s ease-in-out 0s;
+    transform: translateX(0rpx)
+  }
+  .cu-list2.menu-avatar2>.cu-item2:after,
+  .cu-list2.menu2>.cu-item2:after {
+    position: absolute;
+    top: 0;
+    left: 0;
+    box-sizing: border-box;
+    width: 200%;
+    height: 200%;
+    border-bottom: 1rpx solid #ddd;
+    border-radius: inherit;
+    content: " ";
+    transform: scale(.5);
+    transform-origin: 0 0;
+    pointer-events: none
+  }
+
+  .cu-list2.menu-avatar2>.cu-item2>.cu-avatar2 {
+    position: absolute;
+    left: 30rpx
+  }
+
+  .cu-avatar2.xxl2 {
+    width: 168rpx;
+    height: 200rpx;
+    font-size: 3em;
+  }
+
+  .cu-avatar2 {
+    font-variant: small-caps;
+    margin: 0;
+    padding: 0;
+    display: inline-flex;
+    text-align: center;
+    justify-content: center;
+    align-items: center;
+    background-color: #ccc;
+    color: #ffffff;
+    white-space: nowrap;
+    position: relative;
+    width: 64rpx;
+    height: 64rpx;
+    background-size: cover;
+    background-position: center;
+    vertical-align: middle;
+    font-size: 1.5em;
+  }
+
+  .cu-list2.menu-avatar2>.cu-item2 .content2 {
+    position: absolute;
+    left: 146rpx;
+    width: calc(100% - 96rpx - 60rpx - 120rpx - 20rpx);
+    line-height: 1.6em;
+  }
+
+  .cu-list2.menu-avatar2>.cu-item2 .content2>view:first-child {
+    font-size: 30rpx;
+    display: flex;
+    align-items: center
+  }
+
+  .cu-list2.menu-avatar2>.cu-item2 .action2 {
+    width: 100rpx;
+    text-align: center
+  }
+
+  .cu-list2>.cu-item2.move-cur2 {
+    transform: translateX(-130rpx)
+  }
+
+  .cu-list2>.cu-item2 .move2 {
+    position: absolute;
+    right: 0;
+    display: flex;
+    width: 130rpx;
+    height: 100%;
+    transform: translateX(100%)
+  }
+
+  .cu-list2>.cu-item2 .move2 view {
+    display: flex;
+    flex: 1;
+    justify-content: center;
+    align-items: center
+  }
+</style>
